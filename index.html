@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Restkraftstoff</title>
+<meta name="description" content="Restkraftstoff-Rechner für das Segelboot – funktioniert offline.">
+<meta name="theme-color" content="#0f2a3d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Diesel">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<style>
+  :root {
+    --bg: #f2efe8;
+    --card: #ffffff;
+    --ink: #10222f;
+    --muted: #5d6b75;
+    --line: #d9d4c9;
+    --accent: #0f5f8c;
+    --accent-ink: #ffffff;
+    --ok: #2f7d4f;
+    --warn: #b7791f;
+    --bad: #b3362b;
+    --field: #f7f5f0;
+    --header: #0f2a3d;
+    --header-ink: #f2efe8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1820;
+      --card: #12242f;
+      --ink: #e6edf1;
+      --muted: #93a4ae;
+      --line: #23394a;
+      --accent: #4aa3d6;
+      --accent-ink: #06141c;
+      --ok: #5cbf86;
+      --warn: #e0a84a;
+      --bad: #f07a6e;
+      --field: #0e1d26;
+      --header: #07121a;
+      --header-ink: #e6edf1;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  header {
+    background: var(--header);
+    color: var(--header-ink);
+    padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 19px; letter-spacing: .2px; }
+  header .sub { font-size: 12px; opacity: .7; }
+  .tabs { display: flex; gap: 4px; background: rgba(255,255,255,.1); padding: 3px; border-radius: 10px; }
+  .tabs button {
+    border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px;
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .tabs button[aria-selected="true"] { background: var(--header-ink); color: var(--header); font-weight: 600; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 600; }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%; font: inherit; font-size: 17px; color: var(--ink);
+    background: var(--field); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 12px; min-height: 46px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .unit { position: relative; }
+  .unit input { padding-right: 46px; }
+  .unit span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    font: inherit; font-weight: 600; font-size: 15px; border-radius: 10px; min-height: 44px;
+    padding: 10px 14px; border: 1px solid var(--line); background: var(--field); color: var(--ink); cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--bad); }
+  .btn.block { width: 100%; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr 44px; gap: 8px; align-items: end; margin-bottom: 10px; }
+  .seg .x { min-height: 46px; padding: 0; font-size: 20px; line-height: 1; }
+  .seg .hint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-top: -4px; }
+  .seg-head { display: grid; grid-template-columns: 1fr 1fr 44px; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .quick button { flex: 1; min-width: 52px; min-height: 38px; font-size: 14px; padding: 6px; }
+
+  /* Ergebnis */
+  .result { display: grid; grid-template-columns: 74px 1fr; gap: 16px; align-items: stretch; }
+  .gauge {
+    position: relative; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden;
+    min-height: 170px; background: var(--field);
+  }
+  .gauge .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ok); transition: height .3s ease, background .3s; }
+  .gauge .reserve { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--bad); }
+  .gauge .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; color: var(--ink); text-shadow: 0 0 4px var(--card); }
+  .big { font-size: 38px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .big small { font-size: 18px; font-weight: 600; color: var(--muted); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 12px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+  .status.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .status.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .status.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  td.num, th.num { text-align: right; }
+
+  .curve-row { display: grid; grid-template-columns: 1fr 1fr 44px; gap: 8px; margin-bottom: 8px; }
+  .curve-row .x { min-height: 46px; padding: 0; font-size: 20px; }
+  .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .offline-pill { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: rgba(255,255,255,.14); white-space: nowrap; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>⛽ Restkraftstoff</h1>
+    <div class="sub"><span id="offlineState" class="offline-pill">wird geladen…</span></div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="calc">Rechner</button>
+    <button role="tab" aria-selected="false" data-tab="setup">Boot</button>
+  </div>
+</header>
+
+<main id="view-calc">
+  <section class="card" aria-labelledby="h-result">
+    <h2 id="h-result">Im Tank</h2>
+    <div class="result">
+      <div class="gauge" aria-hidden="true">
+        <div class="fill" id="gFill"></div>
+        <div class="reserve" id="gReserve"></div>
+        <div class="pct" id="gPct">–</div>
+      </div>
+      <div>
+        <div class="big" id="rLiters">– <small>l</small></div>
+        <div class="stats">
+          <div class="stat"><div class="k">Verbraucht</div><div class="v" id="rUsed">–</div></div>
+          <div class="stat"><div class="k">Nutzbar bis Reserve</div><div class="v" id="rUsable">–</div></div>
+          <div class="stat"><div class="k">Laufzeit bis Reserve</div><div class="v" id="rTimeRes">–</div></div>
+          <div class="stat"><div class="k">Laufzeit bis leer</div><div class="v" id="rTimeEmpty">–</div></div>
+        </div>
+        <div class="note" id="rAt"></div>
+      </div>
+    </div>
+    <div class="status ok" id="rStatus" hidden></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-start">
+    <h2 id="h-start">Start</h2>
+    <div class="field">
+      <label for="startLiters">Tankinhalt bei Abfahrt</label>
+      <div class="unit"><input id="startLiters" inputmode="decimal" autocomplete="off"><span>l</span></div>
+      <div class="quick" id="startQuick"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-segs">
+    <h2 id="h-segs">Motorfahrten</h2>
+    <div class="seg-head"><span>Dauer (h)</span><span>Drehzahl (U/min)</span><span></span></div>
+    <div id="segs"></div>
+    <div class="actions">
+      <button class="btn primary" id="addSeg" type="button">＋ Fahrt</button>
+      <button class="btn ghost danger" id="resetTrip" type="button">Neue Tour</button>
+    </div>
+    <p class="note">Dauer als Dezimalzahl (1,5 = 1 h 30 min) oder als 1:30 eingeben. Den Verbrauch je Drehzahl stellst du unter „Boot" ein.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-plan">
+    <h2 id="h-plan">Reichweite planen</h2>
+    <div class="field">
+      <label for="planRpm">Geplante Drehzahl</label>
+      <div class="unit"><input id="planRpm" inputmode="numeric" autocomplete="off"><span>U/min</span></div>
+    </div>
+    <table>
+      <thead><tr><th>Drehzahl</th><th class="num">l/h</th><th class="num">bis Reserve</th><th class="num">bis leer</th></tr></thead>
+      <tbody id="planTable"></tbody>
+    </table>
+  </section>
+</main>
+
+<main id="view-setup" hidden>
+  <section class="card" aria-labelledby="h-boat">
+    <h2 id="h-boat">Tank</h2>
+    <div class="row">
+      <div class="field">
+        <label for="tankSize">Tankgröße</label>
+        <div class="unit"><input id="tankSize" inputmode="decimal" autocomplete="off"><span>l</span></div>
+      </div>
+      <div class="field">
+        <label for="reservePct">Reserve</label>
+        <div class="unit"><input id="reservePct" inputmode="decimal" autocomplete="off"><span>%</span></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="unusable">Nicht ansaugbare Restmenge</label>
+      <div class="unit"><input id="unusable" inputmode="decimal" autocomplete="off"><span>l</span></div>
+      <p class="note">Menge, die der Motor wegen der Lage des Ansaugrohrs nicht mehr ziehen kann (bei Seegang oft mehr). Zählt nicht als nutzbar.</p>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-curve">
+    <h2 id="h-curve">Verbrauch nach Drehzahl</h2>
+    <div class="seg-head"><span>Drehzahl (U/min)</span><span>Verbrauch (l/h)</span><span></span></div>
+    <div id="curve"></div>
+    <div class="actions">
+      <button class="btn" id="addCurve" type="button">＋ Zeile</button>
+    </div>
+    <p class="note">Zwischenwerte werden linear gerechnet. Unterhalb oder oberhalb der Tabelle gilt der erste bzw. letzte Wert. Werte stehen im Motorhandbuch, oder du misst sie selbst: Tank voll machen, eine bekannte Zeit bei fester Drehzahl fahren und dann nachtanken.</p>
+  </section>
+
+  <section class="card">
+    <h2>Daten</h2>
+    <p class="note" style="margin-top:0">Alles wird nur auf diesem Gerät gespeichert. Die App funktioniert ohne Internet.</p>
+    <div class="actions">
+      <button class="btn danger" id="resetAll" type="button">Alles zurücksetzen</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+  const KEY = "restkraftstoff.v1";
+  const DEFAULTS = {
+    tankSize: 60,
+    reservePct: 20,
+    unusable: 3,
+    curve: [
+      { rpm: 1000, lph: 0.6 },
+      { rpm: 1500, lph: 1.0 },
+      { rpm: 2000, lph: 1.6 },
+      { rpm: 2500, lph: 2.4 },
+      { rpm: 3000, lph: 3.5 },
+    ],
+    startLiters: 60,
+    segs: [{ hours: "", rpm: 2000 }],
+    planRpm: 2200,
+  };
+
+  let state = load();
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) return Object.assign(structuredCloneSafe(DEFAULTS), JSON.parse(raw));
+    } catch (e) { /* Speicher evtl. gesperrt */ }
+    return structuredCloneSafe(DEFAULTS);
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function structuredCloneSafe(o) { return JSON.parse(JSON.stringify(o)); }
+
+  // ── Zahlen ──────────────────────────────────────────────
+  function num(v) {
+    if (v === null || v === undefined) return NaN;
+    const s = String(v).trim().replace(",", ".");
+    if (s === "") return NaN;
+    return Number(s);
+  }
+  /** "1,5" → 1.5 · "1:30" → 1.5 · "0:45" → 0.75 */
+  function hours(v) {
+    const s = String(v ?? "").trim();
+    const m = s.match(/^(\d+)\s*[:h]\s*(\d{1,2})$/i);
+    if (m) return Number(m[1]) + Number(m[2]) / 60;
+    return num(s);
+  }
+  const fmt1 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const fmt2 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+  const fmt0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+  function fmtH(h) {
+    if (!isFinite(h) || h < 0) return "–";
+    const total = Math.round(h * 60);
+    const hh = Math.floor(total / 60), mm = total % 60;
+    return `${hh}:${String(mm).padStart(2, "0")} h`;
+  }
+
+  // ── Verbrauchskurve ─────────────────────────────────────
+  function curvePoints() {
+    return state.curve
+      .map((p) => ({ rpm: num(p.rpm), lph: num(p.lph) }))
+      .filter((p) => isFinite(p.rpm) && isFinite(p.lph) && p.rpm > 0 && p.lph >= 0)
+      .sort((a, b) => a.rpm - b.rpm);
+  }
+  function lphAt(rpm, pts) {
+    if (!pts.length || !isFinite(rpm)) return NaN;
+    if (rpm <= pts[0].rpm) return pts[0].lph;
+    const last = pts[pts.length - 1];
+    if (rpm >= last.rpm) return last.lph;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (rpm <= b.rpm) {
+        const t = (rpm - a.rpm) / (b.rpm - a.rpm || 1);
+        return a.lph + t * (b.lph - a.lph);
+      }
+    }
+    return last.lph;
+  }
+
+  // ── Rechnen ─────────────────────────────────────────────
+  function compute() {
+    const pts = curvePoints();
+    const tank = num(state.tankSize);
+    const start = num(state.startLiters);
+    const reserve = (isFinite(tank) ? tank : 0) * (num(state.reservePct) || 0) / 100;
+    const unusable = num(state.unusable) || 0;
+    let used = 0;
+    const segInfo = state.segs.map((s) => {
+      const h = hours(s.hours);
+      const rpm = num(s.rpm);
+      const lph = lphAt(rpm, pts);
+      const l = isFinite(h) && isFinite(lph) && h > 0 ? h * lph : 0;
+      used += l;
+      return { h, rpm, lph, l };
+    });
+    const remaining = isFinite(start) ? start - used : NaN;
+    const floor = Math.max(reserve, unusable);
+    const usableToReserve = remaining - floor;
+    const usableToEmpty = remaining - unusable;
+    return { pts, tank, start, reserve, unusable, used, remaining, usableToReserve, usableToEmpty, segInfo };
+  }
+
+  // ── Render ──────────────────────────────────────────────
+  const $ = (id) => document.getElementById(id);
+
+  function renderResult() {
+    const r = compute();
+    const planRpm = num(state.planRpm);
+    const planLph = lphAt(planRpm, r.pts);
+
+    const pct = isFinite(r.remaining) && r.tank > 0 ? Math.max(0, Math.min(100, (r.remaining / r.tank) * 100)) : 0;
+    const resPct = r.tank > 0 ? Math.min(100, (Math.max(r.reserve, r.unusable) / r.tank) * 100) : 0;
+    let level = "ok";
+    if (r.remaining <= r.unusable) level = "bad";
+    else if (r.usableToReserve <= 0) level = "bad";
+    else if (r.remaining - Math.max(r.reserve, r.unusable) < r.tank * 0.1) level = "warn";
+    const color = level === "ok" ? "var(--ok)" : level === "warn" ? "var(--warn)" : "var(--bad)";
+
+    $("gFill").style.height = pct + "%";
+    $("gFill").style.background = color;
+    $("gReserve").style.bottom = resPct + "%";
+    $("gPct").textContent = isFinite(r.remaining) ? fmt0.format(pct) + " %" : "–";
+
+    $("rLiters").innerHTML = isFinite(r.remaining)
+      ? `${fmt1.format(r.remaining)} <small>l</small>`
+      : `– <small>l</small>`;
+    $("rUsed").textContent = fmt1.format(r.used) + " l";
+    $("rUsable").textContent = isFinite(r.usableToReserve) ? fmt1.format(Math.max(0, r.usableToReserve)) + " l" : "–";
+    $("rTimeRes").textContent = planLph > 0 ? fmtH(Math.max(0, r.usableToReserve) / planLph) : "–";
+    $("rTimeEmpty").textContent = planLph > 0 ? fmtH(Math.max(0, r.usableToEmpty) / planLph) : "–";
+    $("rAt").textContent = planLph > 0 ? `Laufzeit bei ${fmt0.format(planRpm)} U/min (${fmt2.format(planLph)} l/h)` : "";
+
+    const st = $("rStatus");
+    st.hidden = false;
+    st.className = "status " + level;
+    if (!isFinite(r.remaining)) { st.hidden = true; }
+    else if (r.remaining < 0) st.textContent = "Rechnerisch leer – Eingaben prüfen oder nachtanken.";
+    else if (r.remaining <= r.unusable) st.textContent = "Unter der nicht ansaugbaren Menge – Motor kann ausgehen.";
+    else if (r.usableToReserve <= 0) st.textContent = "Reserve angebrochen – bald tanken.";
+    else if (level === "warn") st.textContent = "Kurz vor der Reserve.";
+    else st.textContent = "Alles im grünen Bereich.";
+    if (r.start > r.tank) { st.className = "status warn"; st.hidden = false; st.textContent = "Startinhalt ist größer als der Tank."; }
+
+    // Segment-Hinweise
+    r.segInfo.forEach((s, i) => {
+      const el = document.querySelector(`[data-seg-hint="${i}"]`);
+      if (!el) return;
+      el.textContent = s.l > 0 ? `${fmt2.format(s.lph)} l/h → ${fmt1.format(s.l)} l` : "";
+    });
+
+    // Planungstabelle
+    const rows = [];
+    const rpms = new Set(r.pts.map((p) => p.rpm));
+    if (isFinite(planRpm) && planRpm > 0) rpms.add(planRpm);
+    [...rpms].sort((a, b) => a - b).forEach((rpm) => {
+      const lph = lphAt(rpm, r.pts);
+      const tr = lph > 0 ? fmtH(Math.max(0, r.usableToReserve) / lph) : "–";
+      const te = lph > 0 ? fmtH(Math.max(0, r.usableToEmpty) / lph) : "–";
+      const hl = rpm === planRpm ? ' style="font-weight:700;color:var(--accent)"' : "";
+      rows.push(`<tr${hl}><td>${fmt0.format(rpm)}</td><td class="num">${fmt2.format(lph)}</td><td class="num">${tr}</td><td class="num">${te}</td></tr>`);
+    });
+    $("planTable").innerHTML = rows.join("") || `<tr><td colspan="4" class="note">Erst unter „Boot" Verbrauchswerte eintragen.</td></tr>`;
+  }
+
+  function bindInput(id, key) {
+    const el = $(id);
+    el.addEventListener("input", () => { state[key] = el.value; save(); renderResult(); if (key === "tankSize") renderQuick(); });
+  }
+
+  function renderQuick() {
+    const tank = num(state.tankSize);
+    const box = $("startQuick");
+    box.innerHTML = "";
+    if (!(tank > 0)) return;
+    [["Voll", 1], ["¾", 0.75], ["½", 0.5], ["¼", 0.25]].forEach(([label, f]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "btn"; b.textContent = label;
+      b.addEventListener("click", () => {
+        state.startLiters = String(Math.round(tank * f * 10) / 10).replace(".", ",");
+        $("startLiters").value = state.startLiters;
+        save(); renderResult();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function renderSegs() {
+    const box = $("segs");
+    box.innerHTML = "";
+    state.segs.forEach((s, i) => {
+      const row = document.createElement("div");
+      row.className = "seg";
+      row.innerHTML = `
+        <input aria-label="Dauer Fahrt ${i + 1}" inputmode="decimal" placeholder="z. B. 1,5" autocomplete="off">
+        <input aria-label="Drehzahl Fahrt ${i + 1}" inputmode="numeric" placeholder="U/min" autocomplete="off">
+        <button class="btn x" type="button" aria-label="Fahrt ${i + 1} löschen">×</button>
+        <div class="hint" data-seg-hint="${i}"></div>`;
+      const [h, rpm, del] = row.querySelectorAll("input, button");
+      h.value = s.hours ?? ""; rpm.value = s.rpm ?? "";
+      h.addEventListener("input", () => { s.hours = h.value; save(); renderResult(); });
+      rpm.addEventListener("input", () => { s.rpm = rpm.value; save(); renderResult(); });
+      del.addEventListener("click", () => {
+        state.segs.splice(i, 1);
+        if (!state.segs.length) state.segs.push({ hours: "", rpm: lastRpm() });
+        save(); renderSegs(); renderResult();
+      });
+      box.appendChild(row);
+    });
+  }
+  function lastRpm() {
+    const s = state.segs[state.segs.length - 1];
+    return s ? s.rpm : 2000;
+  }
+
+  function renderCurve() {
+    const box = $("curve");
+    box.innerHTML = "";
+    state.curve.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "curve-row";
+      row.innerHTML = `
+        <input aria-label="Drehzahl Zeile ${i + 1}" inputmode="numeric" autocomplete="off">
+        <input aria-label="Verbrauch Zeile ${i + 1}" inputmode="decimal" autocomplete="off">
+        <button class="btn x" type="button" aria-label="Zeile ${i + 1} löschen">×</button>`;
+      const [rpm, lph, del] = row.querySelectorAll("input, button");
+      rpm.value = p.rpm ?? ""; lph.value = String(p.lph ?? "").replace(".", ",");
+      rpm.addEventListener("input", () => { p.rpm = rpm.value; save(); renderResult(); });
+      lph.addEventListener("input", () => { p.lph = lph.value; save(); renderResult(); });
+      del.addEventListener("click", () => { state.curve.splice(i, 1); save(); renderCurve(); renderResult(); });
+      box.appendChild(row);
+    });
+  }
+
+  // ── Events ──────────────────────────────────────────────
+  $("addSeg").addEventListener("click", () => {
+    state.segs.push({ hours: "", rpm: lastRpm() });
+    save(); renderSegs(); renderResult();
+    const inputs = $("segs").querySelectorAll(".seg input:first-child");
+    inputs[inputs.length - 1]?.focus();
+  });
+  $("resetTrip").addEventListener("click", () => {
+    if (!confirm("Neue Tour beginnen? Die Motorfahrten werden gelöscht.")) return;
+    const r = compute();
+    if (isFinite(r.remaining) && r.remaining > 0 && confirm(`Restmenge (${fmt1.format(r.remaining)} l) als neuen Startinhalt übernehmen?`)) {
+      state.startLiters = String(Math.round(r.remaining * 10) / 10).replace(".", ",");
+    }
+    state.segs = [{ hours: "", rpm: lastRpm() }];
+    $("startLiters").value = state.startLiters;
+    save(); renderSegs(); renderResult();
+  });
+  $("addCurve").addEventListener("click", () => {
+    const pts = curvePoints();
+    const next = pts.length ? pts[pts.length - 1].rpm + 500 : 1000;
+    state.curve.push({ rpm: next, lph: "" });
+    save(); renderCurve();
+  });
+  $("resetAll").addEventListener("click", () => {
+    if (!confirm("Alle Einstellungen und Fahrten löschen?")) return;
+    state = structuredCloneSafe(DEFAULTS);
+    save(); init();
+  });
+
+  document.querySelectorAll(".tabs button").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+      $("view-calc").hidden = b.dataset.tab !== "calc";
+      $("view-setup").hidden = b.dataset.tab !== "setup";
+      window.scrollTo(0, 0);
+      if (b.dataset.tab === "calc") renderResult();
+    });
+  });
+
+  const FIELDS = ["tankSize", "reservePct", "unusable", "startLiters", "planRpm"];
+  FIELDS.forEach((k) => bindInput(k, k));
+  function init() {
+    FIELDS.forEach((k) => { $(k).value = state[k] ?? ""; });
+    renderQuick(); renderSegs(); renderCurve(); renderResult();
+  }
+  init();
+
+  // ── Offline (Service Worker) ────────────────────────────
+  const pill = $("offlineState");
+  function setPill(t) { pill.textContent = t; }
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      if (reg.active) setPill("offline bereit");
+      navigator.serviceWorker.ready.then(() => setPill("offline bereit"));
+    }).catch(() => setPill("nur online"));
+  } else {
+    setPill("nur online");
+  }
+  window.addEventListener("offline", () => setPill("offline · läuft weiter"));
+  window.addEventListener("online", () => setPill("offline bereit"));
+})();
+</script>
+</body>
+</html>
